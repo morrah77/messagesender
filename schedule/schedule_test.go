@@ -1,23 +1,27 @@
 package schedule
 
 import (
-	"testing"
-	"log"
 	"bytes"
+	"log"
+	"testing"
 )
 
-var conf *Conf  = &Conf{
-	SourcePath: `testdata/right.csv`,
-	CsvDelimiter: `,`,
-	ScheduleDelimiter:`-`,
+var conf *Conf = &Conf{
+	SourcePath:        `testdata/right.csv`,
+	CsvDelimiter:      `,`,
+	ScheduleDelimiter: `-`,
 }
 var buf = bytes.NewBuffer(make([]byte, 1024))
 var logger = log.New(buf, `test-transport`, log.Flags())
 
 var sentMessages []*message = make([]*message, 0)
 
-var runFunc RunFunc = func(i interface{}) error {
+var runFunc RunFunc = func(i interface{}, j interface{}) error {
 	sentMessages = append(sentMessages, i.(*message))
+	j.(*message).Email = i.(*message).Email
+	j.(*message).Text = i.(*message).Text
+	j.(*message).Paid = false
+	return nil
 }
 
 func TestNewSchedule(t *testing.T) {

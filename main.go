@@ -4,14 +4,15 @@ import (
 	"flag"
 	"log"
 	"os"
+
 	"github.com/morrah77/messagesender/schedule"
 	"github.com/morrah77/messagesender/transport"
 )
 
 var (
-	scheduleConf *schedule.Conf
+	scheduleConf  *schedule.Conf
 	transportConf *transport.Conf
-	logger *log.Logger
+	logger        *log.Logger
 )
 
 func init() {
@@ -20,9 +21,19 @@ func init() {
 }
 
 func main() {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Printf(`Insorrect finish: %+v`, err)
+		} else {
+			logger.Println(`Finish successfully`)
+		}
+	}()
 	var transp *transport.Transport = transport.NewTransport(logger, transportConf)
 	var sched *schedule.Schedule = schedule.NewSchedule(logger, scheduleConf)
-	sched.ParseShedules()
+	err := sched.ParseShedules()
+	if err != nil {
+		panic(err.Error())
+	}
 	sched.Run(transp.Send)
 }
 
@@ -36,7 +47,6 @@ func fillConf() {
 	flag.StringVar(&(scheduleConf.SourcePath), `file`, `docs/customers.csv`, `Path to CSV file containing shedules`)
 	flag.StringVar(&(scheduleConf.CsvDelimiter), `csv-delimiter`, `,`, `CSV fields delimiter`)
 	flag.StringVar(&(scheduleConf.ScheduleDelimiter), `schedule-delimiter`, `-`, `schedule field delimiter`)
-	flag.StringVar(&(transportConf.SendUrl), `url`, `localhost:9090/messages/`, `url to send messages`)
+	flag.StringVar(&(transportConf.SendUrl), `url`, `http://localhost:9090/messages`, `url to send messages`)
 	flag.Parse()
 }
-
