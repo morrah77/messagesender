@@ -3,7 +3,7 @@ echo 'received '$1
 if [ -z "$1" ] ; then
   echo 'Run locally...'
   echo 'Run commservice...'
-  ./build/commservice &
+  ./resources/commservice &
    echo $! > COMMSERVICE_PID
    echo $(<COMMSERVICE_PID)
   read CS_PID < COMMSERVICE_PID

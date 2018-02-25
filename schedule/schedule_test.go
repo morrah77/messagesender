@@ -29,7 +29,7 @@ var wrongFieldsonf *Conf = &Conf{
 
 var buf = bytes.NewBuffer(make([]byte, 1024))
 
-var logger = log.New(buf, `test-transport`, log.Flags())
+var logger = log.New(buf, `test-schedule`, log.Flags())
 
 type messagesCounter struct {
 	counters     map[string]int32

@@ -44,7 +44,7 @@ func setupLog() {
 func fillConf() {
 	scheduleConf = &schedule.Conf{}
 	transportConf = &transport.Conf{}
-	flag.StringVar(&(scheduleConf.SourcePath), `file`, `docs/customers.csv`, `Path to CSV file containing shedules`)
+	flag.StringVar(&(scheduleConf.SourcePath), `file`, `resources/customers.csv`, `Path to CSV file containing shedules`)
 	flag.StringVar(&(scheduleConf.CsvDelimiter), `csv-delimiter`, `,`, `CSV fields delimiter`)
 	flag.StringVar(&(scheduleConf.ScheduleDelimiter), `schedule-delimiter`, `-`, `schedule field delimiter`)
 	flag.StringVar(&(transportConf.SendUrl), `url`, `http://localhost:9090/messages`, `url to send messages`)

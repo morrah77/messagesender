@@ -1,4 +1,4 @@
 FROM golang:1.9.1
 WORKDIR /bin
-COPY build/commservice .
+COPY resources/commservice .
 CMD commservice
