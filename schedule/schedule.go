@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -23,9 +24,40 @@ type message struct {
 	Paid  bool   `json:"paid, omitempty"`
 }
 
-type Task struct {
+type sortableDelays []time.Duration
+
+func (sdItem sortableDelays) Len() int {
+	return len(sdItem)
+}
+
+func (sdItem sortableDelays) Less(i, j int) bool {
+	return sdItem[i] < sdItem[j]
+}
+
+func (sdItem sortableDelays) Swap(i, j int) {
+	sdItem[i], sdItem[j] = sdItem[j], sdItem[i]
+}
+
+func newSortableDelays(length int) sortableDelays {
+	return make([]time.Duration, length)
+}
+
+type task struct {
+	start   time.Time
 	delays  []time.Duration
 	Message *message
+}
+
+func (t *task) calculateSleepTime(i int) (time.Duration, error) {
+	//TODO(h.lazar) consider to remove index validation due to this method is not purposed to be used out of delays range
+	if i < 0 || i+1 > len(t.delays) {
+		return 0, errors.New(`Invalid task delays index`)
+	}
+	if i == 0 {
+		return t.delays[i], nil
+	} else {
+		return (t.delays[i] - t.delays[i-1]), nil
+	}
 }
 
 type scheduleHeader struct {
@@ -33,21 +65,22 @@ type scheduleHeader struct {
 	email    int
 	schedule int
 }
+
+type RunFunc func(interface{}, interface{}) error
+
 type Schedule struct {
 	conf        *Conf
 	header      *scheduleHeader
-	tasks       []*Task
+	tasks       []*task
 	logger      *log.Logger
 	stopChannel chan struct{}
 }
-
-type RunFunc func(interface{}, interface{}) error
 
 func NewSchedule(logger *log.Logger, conf *Conf) *Schedule {
 	return &Schedule{
 		conf:   conf,
 		header: &scheduleHeader{},
-		tasks:  make([]*Task, 0),
+		tasks:  make([]*task, 0),
 		logger: logger,
 	}
 }
@@ -102,21 +135,22 @@ func (sch *Schedule) parseShedule(chunks []string) error {
 		Email: chunks[sch.header.email],
 		Text:  chunks[sch.header.text],
 	}
+	if len(chunks) < sch.header.schedule+1 {
+		return errors.New(`Too few fields in given line!`)
+	}
 	durations, err := sch.splitShedule(chunks[sch.header.schedule])
 	if err != nil {
 		return err
 	}
-	task := &Task{
-		make([]time.Duration, 0),
-		mess,
+	task := &task{
+		Message: mess,
 	}
-	for _, dur := range durations {
-		task.delays = append(task.delays, dur)
-	}
+	task.delays = durations
 	sch.tasks = append(sch.tasks, task)
 	return nil
 }
 
+//TODO(h.lazar) let's don't use any reflection here to do not decrease performance
 func (sch *Schedule) parseHeader(chunks []string) error {
 	for i, chunk := range chunks {
 		if chunk == `email` {
@@ -135,14 +169,14 @@ func (sch *Schedule) parseHeader(chunks []string) error {
 	return nil
 }
 
-func (sch *Schedule) splitShedule(line string) ([]time.Duration, error) {
+func (sch *Schedule) splitShedule(line string) (sortableDelays, error) {
 	var err error
 	chunks := strings.Split(string(line), sch.conf.ScheduleDelimiter)
 	if len(chunks) < 1 {
 		err = errors.New(`Invalid Schedule format!`)
 		return nil, err
 	}
-	durations := make([]time.Duration, 0)
+	durations := newSortableDelays(0)
 	for _, chunk := range chunks {
 		dur, err := time.ParseDuration(chunk)
 		if err != nil {
@@ -151,10 +185,10 @@ func (sch *Schedule) splitShedule(line string) ([]time.Duration, error) {
 		}
 		durations = append(durations, dur)
 	}
+	sort.Sort(durations)
 	return durations, err
 }
 
-//TODO(h.lazar) fix it!
 func (sch *Schedule) Run(rf RunFunc) error {
 	if sch.stopChannel != nil {
 		return errors.New(`Shedule is already runned!`)
@@ -162,11 +196,19 @@ func (sch *Schedule) Run(rf RunFunc) error {
 	sch.stopChannel = make(chan struct{}, len(sch.tasks))
 	finishedTasksCounter := 0
 	for _, t := range sch.tasks {
-		go func(t *Task) {
-			for _, duration := range t.delays {
-				time.Sleep(duration)
+		go func(t *task) {
+			t.start = time.Now()
+			//TODO(h.lazar) consider to check wheather it's time to send each n ms (improve precision but decrease performance)
+			for i, _ := range t.delays {
+				//TODO(h.lazar) consider to calculate sleep time in-place (allows to exclude error checking but decrease readability)
+				timeToSleep, err := t.calculateSleepTime(i)
+				if err != nil {
+					sch.logger.Println(err.Error())
+					break
+				}
+				time.Sleep(timeToSleep)
 				var r *message = &message{}
-				err := rf(t.Message, r)
+				err = rf(t.Message, r)
 				if err != nil {
 					sch.logger.Println(err.Error())
 				}
