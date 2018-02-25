@@ -59,7 +59,7 @@ func TestNewTransport(t *testing.T) {
 
 //func TestTransport_Send(t *testing.T) {
 //	var transport = NewTransport(logger, conf)
-//	setupHttpResponder(t)
+//	go setupHttpResponder(t)
 //	req := sentRequest
 //	resp := &message{}
 //	err := transport.Send(
